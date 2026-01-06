@@ -1,0 +1,28 @@
+name: Sync Formula
+
+on:
+  repository_dispatch:
+    types: [formula-update]
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sync from main repo
+        run: |
+          curl -sSL https://raw.githubusercontent.com/repr-app/cli/main/Formula/repr.rb \
+            -o Formula/repr.rb
+
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/repr.rb
+          git diff --staged --quiet || {
+            git commit -m "Sync repr formula from main repo"
+            git push
+          }
+
