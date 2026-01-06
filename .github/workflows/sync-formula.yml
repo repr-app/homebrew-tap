@@ -1,28 +1,119 @@
-name: Sync Formula
+name: Sync Formula from CLI Repo
 
 on:
   repository_dispatch:
     types: [formula-update]
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to sync (e.g., 0.2.5)'
+        required: false
+
+permissions:
+  contents: write
 
 jobs:
   sync:
+    name: Sync Formula
     runs-on: ubuntu-latest
+    
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout homebrew-tap
+        uses: actions/checkout@v4
 
-      - name: Sync from main repo
+      - name: Get version
+        id: version
         run: |
-          curl -sSL https://raw.githubusercontent.com/repr-app/cli/main/Formula/repr.rb \
-            -o Formula/repr.rb
+          if [ -n "${{ github.event.client_payload.version }}" ]; then
+            VERSION="${{ github.event.client_payload.version }}"
+          elif [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            # Fetch latest release version from cli repo
+            VERSION=$(curl -s https://api.github.com/repos/repr-app/cli/releases/latest | jq -r '.tag_name' | sed 's/^v//')
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Syncing version: $VERSION"
 
-      - name: Commit if changed
+      - name: Download release assets and calculate SHA256
+        id: checksums
         run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="v${VERSION}"
+          
+          mkdir -p downloads
+          cd downloads
+          
+          echo "Downloading macOS binary..."
+          curl -sSL "https://github.com/repr-app/cli/releases/download/${TAG}/repr-macos.tar.gz" -o repr-macos.tar.gz
+          
+          echo "Downloading Linux binary..."
+          curl -sSL "https://github.com/repr-app/cli/releases/download/${TAG}/repr-linux.tar.gz" -o repr-linux.tar.gz
+          
+          MACOS_SHA256=$(shasum -a 256 repr-macos.tar.gz | awk '{print $1}')
+          LINUX_SHA256=$(shasum -a 256 repr-linux.tar.gz | awk '{print $1}')
+          
+          echo "macos_sha256=$MACOS_SHA256" >> $GITHUB_OUTPUT
+          echo "linux_sha256=$LINUX_SHA256" >> $GITHUB_OUTPUT
+          
+          echo "macOS SHA256: $MACOS_SHA256"
+          echo "Linux SHA256: $LINUX_SHA256"
+
+      - name: Update Formula
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          MACOS_SHA256="${{ steps.checksums.outputs.macos_sha256 }}"
+          LINUX_SHA256="${{ steps.checksums.outputs.linux_sha256 }}"
+          
+          cat > Formula/repr.rb << 'EOF'
+class Repr < Formula
+  desc "Privacy-first CLI that analyzes git repositories and generates developer profiles"
+  homepage "https://repr.dev"
+  version "VERSION_PLACEHOLDER"
+  license "MIT"
+
+  on_macos do
+    url "https://github.com/repr-app/cli/releases/download/v#{version}/repr-macos.tar.gz"
+    sha256 "MACOS_SHA256_PLACEHOLDER"
+  end
+
+  on_linux do
+    url "https://github.com/repr-app/cli/releases/download/v#{version}/repr-linux.tar.gz"
+    sha256 "LINUX_SHA256_PLACEHOLDER"
+  end
+
+  def install
+    bin.install "repr"
+  end
+
+  test do
+    system "#{bin}/repr", "--help"
+    system "#{bin}/repr", "--version"
+  end
+end
+EOF
+          
+          # Replace placeholders
+          sed -i "s/VERSION_PLACEHOLDER/$VERSION/" Formula/repr.rb
+          sed -i "s/MACOS_SHA256_PLACEHOLDER/$MACOS_SHA256/" Formula/repr.rb
+          sed -i "s/LINUX_SHA256_PLACEHOLDER/$LINUX_SHA256/" Formula/repr.rb
+          
+          echo "Updated Formula/repr.rb:"
+          cat Formula/repr.rb
+
+      - name: Commit and push
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          
           git add Formula/repr.rb
-          git diff --staged --quiet || {
-            git commit -m "Sync repr formula from main repo"
-            git push
-          }
-
+          
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Update formula to v${VERSION}"
+            git push origin main
+            echo "Formula updated to v${VERSION}"
+          fi
