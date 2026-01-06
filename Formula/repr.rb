@@ -1,17 +1,17 @@
 class Repr < Formula
   desc "Privacy-first CLI that analyzes git repositories and generates developer profiles"
   homepage "https://repr.dev"
-  version "0.2.5"
+  version "0.2.8"
   license "MIT"
 
   on_macos do
     url "https://github.com/repr-app/cli/releases/download/v#{version}/repr-macos.tar.gz"
-    sha256 "04eff1ac614b7f364e67dab2b8419166edfab1323b0476780988ae9d52196e7d"
+    sha256 "39e505f53f0f42b634a6c7816c24b73ca7c526593d50034ac8e0d5243eca896f"
   end
 
   on_linux do
     url "https://github.com/repr-app/cli/releases/download/v#{version}/repr-linux.tar.gz"
-    sha256 "b14fbba56ee90dbec1e6fa3875f9f42a0871ecdfb62eddd8f56a36e9ebf2d13b"
+    sha256 "5257bec41a5e42ff919477281696f8aa4f2a14b401eb3d296917f388082d355a"
   end
 
   def install
