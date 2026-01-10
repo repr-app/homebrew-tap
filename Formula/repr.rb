@@ -1,17 +1,21 @@
 class Repr < Formula
   desc "Privacy-first CLI that analyzes git repositories and generates developer profiles"
   homepage "https://repr.dev"
-  version "0.2.8"
-  license "MIT"
-
+  version "0.2.15"
+  
   on_macos do
-    url "https://github.com/repr-app/cli/releases/download/v#{version}/repr-macos.tar.gz"
-    sha256 "39e505f53f0f42b634a6c7816c24b73ca7c526593d50034ac8e0d5243eca896f"
+    if Hardware::CPU.arm?
+      url "https://github.com/repr-app/cli/releases/download/v0.2.15/repr-macos.tar.gz"
+      sha256 "f924fd907345af1d3f54f531e3e19258565df09cb42644aaa1848af0e7c1ce57"
+    else
+      url "https://github.com/repr-app/cli/releases/download/v0.2.15/repr-macos.tar.gz"
+      sha256 "f924fd907345af1d3f54f531e3e19258565df09cb42644aaa1848af0e7c1ce57"
+    end
   end
 
   on_linux do
-    url "https://github.com/repr-app/cli/releases/download/v#{version}/repr-linux.tar.gz"
-    sha256 "5257bec41a5e42ff919477281696f8aa4f2a14b401eb3d296917f388082d355a"
+    url "https://github.com/repr-app/cli/releases/download/v0.2.15/repr-linux.tar.gz"
+    sha256 "6ea802ec6c03b25fac5cf35fd96f10246b6cb7dca920d0c66a274f7d187a884d"
   end
 
   def install
@@ -20,7 +24,6 @@ class Repr < Formula
 
   test do
     system "#{bin}/repr", "--help"
-    system "#{bin}/repr", "--version"
+    system "#{bin}/repr", "config", "--json"
   end
 end
-
